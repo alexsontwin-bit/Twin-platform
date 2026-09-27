@@ -12,23 +12,21 @@ const TEST_PASSWORD = "LiveTestPassword123!"
 async function fillStripeTestCard(page: Page) {
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 })
 
-  const cardFrame = page.frameLocator('iframe[title="Secure card number input frame"]')
-  await cardFrame.locator('input[name="cardnumber"]').fill("4242424242424242")
-
-  const expiryFrame = page.frameLocator('iframe[title="Secure expiration date input frame"]')
-  await expiryFrame.locator('input[name="exp-date"]').fill("12/34")
-
-  const cvcFrame = page.frameLocator('iframe[title="Secure CVC input frame"]')
-  await cvcFrame.locator('input[name="cvc"]').fill("123")
+  // This Stripe Checkout deployment renders card/expiry/CVC/name as plain
+  // named inputs (cardNumber/cardExpiry/cardCvc/billingName) directly on the
+  // checkout.stripe.com page itself — not nested in a per-field titled
+  // iframe ("Secure card number input frame" etc.) the way some other
+  // Stripe Checkout configurations render them. Confirmed by inspecting the
+  // live frame tree directly: the only frame with these inputs IS the
+  // top-level checkout.stripe.com page (page.mainFrame()), so plain
+  // page.locator() reaches them with no frameLocator indirection needed.
+  await page.locator('input[name="cardNumber"]').fill("4242424242424242")
+  await page.locator('input[name="cardExpiry"]').fill("12/34")
+  await page.locator('input[name="cardCvc"]').fill("123")
 
   const nameField = page.locator('input[name="billingName"]')
   if (await nameField.isVisible().catch(() => false)) {
     await nameField.fill("Live Test")
-  }
-
-  const postalField = page.locator('input[name="postalCode"], input[id="billingPostalCode"]')
-  if (await postalField.first().isVisible().catch(() => false)) {
-    await postalField.first().fill("94103")
   }
 
   await page.getByTestId("hosted-payment-submit-button").click()
