@@ -1,9 +1,13 @@
-import { UserRound, KeyRound, ShieldCheck, Smartphone } from "lucide-react"
+import Link from "next/link"
+import { UserRound, KeyRound, ShieldCheck, Smartphone, CreditCard } from "lucide-react"
 
 import { requireUser } from "@/lib/auth"
 import { GUARDRAIL_POLICY } from "@/lib/ai/guardrails"
+import { isPaidPlan } from "@/lib/billing/plan"
+import { buttonVariants } from "@/components/ui/button-variants"
 import { ProfileForm } from "@/app/(app)/settings/ProfileForm"
 import { PasswordForm } from "@/app/(app)/settings/PasswordForm"
+import { ManageBillingButton } from "@/app/(app)/settings/ManageBillingButton"
 import { InstallAppButton } from "@/components/shared/InstallAppButton"
 
 /**
@@ -39,6 +43,29 @@ export default async function SettingsPage() {
           <h3 className="text-h3 text-text-primary">Change Password</h3>
         </div>
         <PasswordForm />
+      </section>
+
+      {/* MonetizationPlan.md Step 4/5 — same per-section card pattern as
+          Profile/Change Password/Install App above. */}
+      <section className="elevation-card flex items-center justify-between gap-4 rounded-lg bg-bg-surface p-6">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-soft-bg text-accent-primary">
+            <CreditCard className="size-4" strokeWidth={1.75} />
+          </span>
+          <div className="flex flex-col">
+            <h3 className="text-h3 text-text-primary">Plan</h3>
+            <span className="text-micro text-text-tertiary">
+              {isPaidPlan(user) ? `Current plan: ${user.plan}` : "Demo — limited to a few free tasks"}
+            </span>
+          </div>
+        </div>
+        {isPaidPlan(user) ? (
+          <ManageBillingButton />
+        ) : (
+          <Link href="/pricing" className={buttonVariants({ variant: "secondary" })}>
+            Upgrade
+          </Link>
+        )}
       </section>
 
       {/* Install renders nothing on browsers/states where it can't do

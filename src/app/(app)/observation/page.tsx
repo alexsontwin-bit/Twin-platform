@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth"
+import { getHistoryRetentionDays } from "@/lib/billing/plan"
 import { prisma } from "@/lib/prisma"
 import { ObservationFilters } from "@/app/(app)/observation/ObservationFilters"
 import { ObservationFeed, type FeedEvent } from "@/app/(app)/observation/ObservationFeed"
@@ -50,8 +51,24 @@ export default async function ObservationPage({
 
   const workflowType = VALID_WORKFLOW_TYPES.find((w) => w === params.workflowType)
   const decisionType = VALID_DECISION_TYPES.find((d) => d === params.decisionType)
-  const from = parseDateBoundary(params.from, false)
+  const requestedFrom = parseDateBoundary(params.from, false)
   const to = parseDateBoundary(params.to, true)
+
+  /**
+   * MonetizationPlan.md Step 6.5 — history retention. retentionFloor is the
+   * earliest timestamp this plan is entitled to see at all; the user's own
+   * `from` filter can only narrow the window further, never widen it past
+   * this floor. `retentionApplied` (the floor was actually the binding
+   * constraint, not just present) drives the upgrade banner below — a
+   * Professional/Enterprise account with `retentionFloor === null` never
+   * sees it, and a Demo account whose own filter already starts later than
+   * the floor doesn't see a banner claiming data was hidden when none was.
+   */
+  const retentionDays = getHistoryRetentionDays(user)
+  const retentionFloor = retentionDays === null ? null : new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000)
+  const from =
+    retentionFloor && (!requestedFrom || requestedFrom < retentionFloor) ? retentionFloor : requestedFrom
+  const retentionApplied = retentionFloor !== null && (!requestedFrom || requestedFrom < retentionFloor)
 
   const dateRangeWhere = from || to ? { gte: from, lte: to } : undefined
 
@@ -121,6 +138,17 @@ export default async function ObservationPage({
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
       <h2 className="text-h2 text-text-primary">Observation Log</h2>
+      {retentionApplied && (
+        <div className="flex items-center justify-between gap-3 rounded-md bg-status-pending-bg px-4 py-3 text-meta text-status-pending">
+          <span>
+            {user.plan === "DEMO" ? "The Demo plan" : "The Individual plan"} only shows the last {retentionDays}{" "}
+            days of activity. Upgrade to Professional or Enterprise for full, unlimited history.
+          </span>
+          <a href="/pricing" className="shrink-0 font-medium underline underline-offset-2">
+            Upgrade
+          </a>
+        </div>
+      )}
       <ObservationFilters
         currentWorkflowType={workflowType}
         currentDecisionType={decisionType}

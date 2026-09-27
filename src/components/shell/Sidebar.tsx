@@ -1,5 +1,6 @@
 "use client"
 
+import type { Plan } from "@prisma/client"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -10,6 +11,7 @@ import { PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react"
 
 import { NAV_ITEMS } from "@/components/shell/nav-items"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { PlanBadge } from "@/components/shared/PlanBadge"
 import { cn } from "@/lib/utils"
 
 /**
@@ -23,7 +25,7 @@ import { cn } from "@/lib/utils"
  * unique" feedback. Footer: pinned logout action (mt-auto), replacing the
  * plain TopBar avatar placeholder that carried no real action.
  */
-function Sidebar() {
+function Sidebar({ plan }: { plan: Plan }) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -118,6 +120,22 @@ function Sidebar() {
       </div>
 
       <div className="mt-auto border-t border-border-subtle pt-3">
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <div className="mb-2 flex justify-center">
+                  <PlanBadge plan={plan} compact />
+                </div>
+              }
+            />
+            <TooltipContent side="right">Current plan</TooltipContent>
+          </Tooltip>
+        ) : (
+          <div className="mb-2 px-3">
+            <PlanBadge plan={plan} />
+          </div>
+        )}
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger

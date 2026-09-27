@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { WifiOff } from "lucide-react"
+import { WifiOff, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -25,10 +26,19 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-function TaskCreateForm() {
+function TaskCreateForm({
+  tasksUsed,
+  taskLimit,
+}: {
+  // MonetizationPlan.md Step 2 — both null means "paid plan, no limit,"
+  // never "0 of 0" (a paid account must never see a usage banner at all).
+  tasksUsed: number | null
+  taskLimit: number | null
+}) {
   const router = useRouter()
   const isOnline = useOnlineStatus()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [capReached, setCapReached] = useState(taskLimit !== null && tasksUsed !== null && tasksUsed >= taskLimit)
 
   const {
     register,
@@ -48,6 +58,12 @@ function TaskCreateForm() {
       if (!result.success) {
         setSubmitError(result.error)
         toast.error(result.error)
+        // MonetizationPlan.md Step 2 — deliberately does NOT redirect or
+        // reset the form here: the user's already-typed content (workflow
+        // type, inbound text, context notes) must stay exactly as they left
+        // it, since this is the one path in this form that doesn't follow
+        // the happy path's "redirect immediately on success" behavior.
+        if (result.capReached) setCapReached(true)
         return
       }
       toast.success("Task created — the AI is drafting a response.")
@@ -63,6 +79,32 @@ function TaskCreateForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+      {/* MonetizationPlan.md Step 2 — reuses the offline-banner's exact
+          shape (inline strip, icon + one line, same status-color tokens)
+          rather than EmptyState, which is a full-page block built for
+          "there is no data at all," the wrong shape for a quota notice
+          sitting above a form that still has content. status-pending
+          (blue) for an in-progress count, status-rejected (red) reserved
+          for the actual hard-blocked "0 remaining" state below. */}
+      {taskLimit !== null && tasksUsed !== null && !capReached && (
+        <div className="flex items-center gap-2 rounded-md bg-status-pending-bg px-4 py-3 text-meta text-status-pending">
+          <Sparkles className="size-4 shrink-0" strokeWidth={1.75} />
+          You&apos;ve used {tasksUsed} of {taskLimit} free tasks on the Demo plan.
+        </div>
+      )}
+
+      {capReached && (
+        <div className="flex items-center justify-between gap-3 rounded-md bg-status-rejected-bg px-4 py-3 text-meta text-status-rejected">
+          <span className="flex items-center gap-2">
+            <Sparkles className="size-4 shrink-0" strokeWidth={1.75} />
+            You&apos;ve used all {taskLimit} free tasks on the Demo plan.
+          </span>
+          <Link href="/pricing" className="shrink-0 font-medium underline underline-offset-2">
+            Upgrade
+          </Link>
+        </div>
+      )}
+
       {!isOnline && (
         <div className="flex items-center gap-2 rounded-md bg-status-rejected-bg px-4 py-3 text-meta text-status-rejected">
           <WifiOff className="size-4 shrink-0" strokeWidth={1.75} />
@@ -108,7 +150,7 @@ function TaskCreateForm() {
 
       {submitError && <p className="text-meta text-status-rejected">{submitError}</p>}
 
-      <Button type="submit" size="lg" disabled={isSubmitting || !isOnline} className="self-start">
+      <Button type="submit" size="lg" disabled={isSubmitting || !isOnline || capReached} className="self-start">
         {isSubmitting ? "Creating task..." : "Create task"}
       </Button>
     </form>

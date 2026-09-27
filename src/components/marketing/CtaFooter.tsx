@@ -16,6 +16,9 @@ function CtaFooter() {
         <Link href="/signup" className={buttonVariants({ variant: "default", size: "lg" })}>
           Get Started
         </Link>
+        <Link href="/pricing" className="text-meta text-text-secondary underline-offset-2 hover:text-text-primary hover:underline">
+          See pricing
+        </Link>
       </div>
     </footer>
   )

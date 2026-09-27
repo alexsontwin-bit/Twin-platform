@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { Suspense } from "react"
 
+import { requireUser } from "@/lib/auth"
 import { Sidebar } from "@/components/shell/Sidebar"
 import { MobileTabBar } from "@/components/shell/MobileTabBar"
 import { TopBar } from "@/components/shell/TopBar"
@@ -11,8 +12,16 @@ import { TooltipProvider } from "@/components/ui/tooltip"
  * Authenticated app shell — wraps every route under (app). Route protection
  * itself lives in src/proxy.ts (redirects unauthenticated requests to
  * /login before this layout ever renders), not here.
+ *
+ * requireUser() here (rather than in Sidebar/TopBar themselves) is what lets
+ * the Plan badge (MonetizationPlan.md Step 6.5) stay accurate — those two
+ * components are "use client" for unrelated reasons (collapse state, active
+ * route highlighting) and would otherwise need their own session-derived
+ * fetch. This one fresh Postgres read per navigation is shared between both.
  */
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const user = await requireUser()
+
   return (
     <TooltipProvider>
       <div className="flex min-h-screen bg-bg-base">
@@ -20,7 +29,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <Suspense fallback={null}>
           <RouteProgressBar />
         </Suspense>
-        <Sidebar />
+        <Sidebar plan={user.plan} />
         {/*
           min-w-0 is required here: flex items default to `min-width: auto`,
           meaning this column refuses to shrink below the natural width of
@@ -35,7 +44,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           visibly on-screen.
         */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar />
+          <TopBar plan={user.plan} />
           <main className="flex-1 pb-20 md:pb-0">{children}</main>
         </div>
         <MobileTabBar />

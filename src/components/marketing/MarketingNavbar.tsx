@@ -41,6 +41,9 @@ async function MarketingNavbar() {
           <Link href="#authority" className="text-body text-text-secondary transition-colors duration-150 hover:text-text-primary">
             Authority
           </Link>
+          <Link href="/pricing" className="text-body text-text-secondary transition-colors duration-150 hover:text-text-primary">
+            Pricing
+          </Link>
         </div>
 
         {session?.user ? (

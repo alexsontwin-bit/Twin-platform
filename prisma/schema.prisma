@@ -41,6 +41,28 @@ enum EvalTagValue {
   BAD
 }
 
+// MonetizationPlan.md Step 1. DEMO is the default for every user, including
+// everyone who signed up before this feature existed — the demo task cap
+// (Step 2) applies retroactively to them, per that step's explicit decision.
+enum Plan {
+  DEMO
+  INDIVIDUAL
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+// MonetizationPlan.md Step 1. NONE = never subscribed (every DEMO user
+// starts here). PAST_DUE = a renewal charge failed (see the invoice.
+// payment_failed webhook handler, Step 3) — still has a stripeSubscriptionId,
+// just not currently in good standing. CANCELED = subscription ended,
+// deliberately never deletes the user's task/decision history.
+enum SubscriptionStatus {
+  NONE
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -48,6 +70,16 @@ model User {
   name          String?
   hasOnboarded  Boolean  @default(false)
   createdAt     DateTime @default(now())
+
+  // MonetizationPlan.md Step 1 — plan/billing state. `isPaidPlan()` /
+  // `getTaskLimit()` in src/lib/billing/plan.ts are the ONLY place that
+  // should ever interpret these fields; every gating check across the app
+  // must go through those two functions, never a second ad-hoc comparison.
+  plan                 Plan               @default(DEMO)
+  subscriptionStatus   SubscriptionStatus @default(NONE)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
 
   tasks     Task[]
   decisions Decision[] @relation("DecisionActor")
