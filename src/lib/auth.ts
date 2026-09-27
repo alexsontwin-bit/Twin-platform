@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 
 import { prisma } from "@/lib/prisma"
+import { withDbRetry } from "@/lib/db-retry"
 
 /**
  * NextAuth.js v5 (Auth.js) config — Credentials provider (email/password),
@@ -45,7 +46,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = typeof credentials?.password === "string" ? credentials.password : undefined
         if (!email || !password) return null
 
-        const user = await prisma.user.findUnique({ where: { email } })
+        const user = await withDbRetry(() => prisma.user.findUnique({ where: { email } }))
         if (!user) return null
 
         const isValid = await bcrypt.compare(password, user.passwordHash)
@@ -82,7 +83,7 @@ export async function requireUser() {
     throw new Error("Unauthorized")
   }
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } })
+  const user = await withDbRetry(() => prisma.user.findUnique({ where: { id: session.user.id } }))
   if (!user) {
     throw new Error("Unauthorized")
   }

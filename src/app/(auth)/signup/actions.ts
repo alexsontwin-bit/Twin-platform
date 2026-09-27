@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { signIn } from "@/lib/auth"
+import { withDbRetry } from "@/lib/db-retry"
 
 const signupSchema = z.object({
   // Postgres's default `email @unique` comparison is case-sensitive, but
@@ -33,7 +34,12 @@ export async function signup(formData: FormData): Promise<SignupResult> {
 
   const { email, password, name } = parsed.data
 
-  const existing = await prisma.user.findUnique({ where: { email } })
+  let existing
+  try {
+    existing = await withDbRetry(() => prisma.user.findUnique({ where: { email } }))
+  } catch {
+    return { success: false, error: "Something went wrong — please try again." }
+  }
   if (existing) {
     return { success: false, error: "An account with this email already exists." }
   }
@@ -41,9 +47,11 @@ export async function signup(formData: FormData): Promise<SignupResult> {
   const passwordHash = await bcrypt.hash(password, 10)
 
   try {
-    await prisma.user.create({
-      data: { email, passwordHash, name },
-    })
+    await withDbRetry(() =>
+      prisma.user.create({
+        data: { email, passwordHash, name },
+      })
+    )
   } catch (error) {
     // The findUnique check above isn't atomic with this create — two
     // concurrent signups for the same email can both pass it and both
